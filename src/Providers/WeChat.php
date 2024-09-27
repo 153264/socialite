@@ -87,7 +87,7 @@ class WeChat extends Base
     {
         $query = \http_build_query($this->getCodeFields(), '', '&', $this->encodingType);
 
-        return $url.'?'.$query.'#wechat_redirect';
+        return $url . '?' . $query . '#wechat_redirect';
     }
 
     protected function getCodeFields(): array
@@ -108,13 +108,13 @@ class WeChat extends Base
 
     protected function getTokenUrl(): string
     {
-        return \sprintf($this->baseUrl.'/oauth2%s/access_token', empty($this->component) ? '' : '/component');
+        return \sprintf($this->baseUrl . '/oauth2%s/access_token', empty($this->component) ? '' : '/component');
     }
 
     public function userFromCode(string $code): Contracts\UserInterface
     {
         if (\in_array('snsapi_base', $this->scopes)) {
-            return $this->mapUserToObject($this->fromJsonBody($this->getTokenFromCode($code)));
+            return $this->getSnsapiBaseUserFromCode($code);
         }
 
         $token = $this->tokenFromCode($code);
@@ -128,11 +128,23 @@ class WeChat extends Base
             ->setTokenResponse($token);
     }
 
+    protected function getSnsapiBaseUserFromCode(string $code): Contracts\UserInterface
+    {
+        $token = $this->fromJsonBody($this->getTokenFromCode($code));
+        $user = [
+            'openid' => $token['openid'],
+        ];
+        if (isset($token['unionid'])) {
+            $user['unionid'] = $token['unionid'];
+        }
+        return $this->mapUserToObject($token)->setProvider($this)->setRaw($user)->setAccessToken($token[$this->accessTokenKey]);
+    }
+
     protected function getUserByToken(string $token): array
     {
         $language = $this->withCountryCode ? null : (isset($this->parameters['lang']) ? $this->parameters['lang'] : 'zh_CN');
 
-        $response = $this->getHttpClient()->get($this->baseUrl.'/userinfo', [
+        $response = $this->getHttpClient()->get($this->baseUrl . '/userinfo', [
             'query' => \array_filter([
                 Contracts\RFC6749_ABNF_ACCESS_TOKEN => $token,
                 'openid' => $this->openid,
@@ -205,11 +217,11 @@ class WeChat extends Base
             }
         }
 
-        if (\count($config) !== 2) {
+        if (2 !== \count($config)) {
             throw new Exceptions\InvalidArgumentException('Please check your config arguments were available.');
         }
 
-        if (\count($this->scopes) === 1 && \in_array('snsapi_login', $this->scopes)) {
+        if (1 === \count($this->scopes) && \in_array('snsapi_login', $this->scopes)) {
             $this->scopes = ['snsapi_base'];
         }
 
